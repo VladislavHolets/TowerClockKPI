@@ -1,0 +1,17 @@
+# settings.yaml
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  secret_key: "test_key" # Для безпеки сесій
+
+hardware:
+  motor_step_pin: 0
+  motor_dir_pin: 1
+  motor_en_pin: 2
+  steps_per_minute: 125
+  invert_direction: false
+
+paths:
+  db_url: "sqlite:///storage/clock.sqlite"
+  media_path: "storage/media"
