@@ -126,7 +126,7 @@ sudo swapon /swapfile
 ```bash
 python3 -m venv --system-site-packages .venv
 source .venv/bin/activate
-pip install nicegui sqlmodel apscheduler bcrypt pyyaml
+pip install -r requirements.txt
 ```
 
 > Зачекайте близько 20 хв до встановлення та компіляції залежностей. Може здаватись, що система зависла, але це не так.
