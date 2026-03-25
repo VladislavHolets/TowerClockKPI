@@ -1,8 +1,10 @@
 import yaml
-from nicegui import ui
+from docutils.nodes import title
+from nicegui import ui, app
 
 from database.crud import create_db_and_tables, init_default_data
 from core.scheduler import start_scheduler
+from ui.login import build_login_page
 from ui.main_layout import create_layout
 
 with open("settings.yaml", "r", encoding="utf-8") as file:
@@ -10,14 +12,27 @@ with open("settings.yaml", "r", encoding="utf-8") as file:
 
 server_host = config["server"]["host"]
 server_port = config["server"]["port"]
-
+secret_key = config["server"]["secret_key"]
+title = config["server"]["title"]
 # ==========================================
 # 1. ВЕБ-ІНТЕРФЕЙС
 # ==========================================
-@ui.page('/')
-def index():
-    create_layout()
+# 1. Відкрита сторінка логіну
+@ui.page('/login')
+def login_page():
+    build_login_page()
 
+
+# 2. Захищена головна сторінка
+@ui.page('/')
+def index_page():
+    # Перевіряємо, чи є в користувача "ключ" у сесії
+    if not app.storage.user.get('authenticated', False):
+        ui.navigate.to('/login')
+        return
+
+    # Якщо авторизований — малюємо інтерфейс
+    create_layout()
 # ==========================================
 # 2. ЗАПУСК ДОДАТКУ ТА ФОНОВИХ ПРОЦЕСІВ
 # ==========================================
@@ -33,7 +48,8 @@ if __name__ in {"__main__", "__mp_main__"}:
     ui.run(
         host=server_host,
         port=server_port,
-        title="YADRO | Годинник КПІ",
+        title=title,
+        storage_secret=secret_key,
         dark=False,
         show=False,
         reload=False  # <--- ВИМИКАЄМО АВТОПЕРЕЗАВАНТАЖЕННЯ (КРИТИЧНО ДЛЯ ЗАЛІЗА)

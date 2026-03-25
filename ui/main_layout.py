@@ -1,4 +1,4 @@
-from nicegui import ui
+from nicegui import ui, app
 from datetime import datetime
 from core.state import clock_state
 
@@ -16,9 +16,20 @@ def create_layout():
 
     ui.colors(primary='#1976d2', secondary='#26a69a', accent='#9c27b0')
 
-    with ui.header().classes('row items-center justify-between px-4 py-2 shadow-md'):
-        ui.label('YADRO | Годинник Головного Корпусу').classes('text-h6 font-bold')
-        ui.icon('schedule', size='md')
+    def logout():
+        app.storage.user['authenticated'] = False
+        app.storage.user.clear()  # Повністю очищаємо дані сесії
+        ui.navigate.to('/login')
+
+    with ui.header().classes('row items-center justify-between px-4 py-2 shadow-md bg-blue-700'):
+        with ui.row().classes('items-center gap-2'):
+            ui.icon('schedule', size='md', color='white')
+            ui.label('YADRO | Годинник Головного Корпусу').classes('text-h6 font-bold text-white')
+
+        # Кнопка виходу в правому куті
+        with ui.row().classes('items-center gap-4'):
+            ui.label(app.storage.user.get('username', 'Admin')).classes('text-white font-medium')
+            ui.button(icon='logout', on_click=logout).props('flat round color=white').tooltip('Вийти з системи')
 
     with ui.tabs().classes('w-full bg-blue-50 text-blue-900 shadow-sm') as tabs:
         tab_dash = ui.tab('Дашборд', icon='dashboard')

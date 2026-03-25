@@ -1,52 +1,156 @@
-from nicegui import ui
-from database.crud import get_system_settings, engine
+from pathlib import Path
+from nicegui import ui, app
+from database.crud import get_system_settings, engine, update_user_password
 from sqlmodel import Session
-
+from core.system_control import reboot_pi, update_wifi_settings
 
 def save_settings(settings_obj):
     with Session(engine) as session:
-        # Використовуємо merge() замість add().
-        # Це копіює дані в базу, але залишає сам об'єкт живим для інтерфейсу NiceGUI.
         session.merge(settings_obj)
         session.commit()
-    ui.notify('Налаштування механіки збережено!', type='positive')
+    ui.notify('Налаштування збережено!', type='positive')
+
 
 def build_settings_tab():
     ui.label('Глобальні налаштування системи').classes('text-h6 mb-4')
-
     settings = get_system_settings()
-
     if not settings:
         ui.label('Помилка завантаження налаштувань.').classes('text-red-500')
         return
 
-    with ui.card().classes('w-full max-w-3xl p-6'):
-        ui.label('⚙️ Налаштування механіки (Шестерні)').classes('text-subtitle1 font-bold mb-2')
-        ui.label(
-            'Ці параметри дозволяють легко підлаштувати програму під будь-який редуктор чи розмір циферблата.').classes(
-            'text-caption text-gray-500 mb-6')
+    with ui.card().classes('w-full max-w-4xl p-6'):
+        # ==========================================
+        # 1. ЛОГІКА СИСТЕМНИХ ЗВУКІВ
+        # ==========================================
+        ui.label('🎵 Логіка системних звуків').classes('text-subtitle1 font-bold mb-2')
+        with ui.row().classes('w-full items-center mb-2'):
+            ui.label('Коли грати переддзвін (мелодію перед ударами):').classes('w-1/2 font-medium text-gray-700')
+            ui.select(
+                options={'12_24': 'Тільки о 12:00 та 00:00', 'hourly': 'Щогодини', 'none': 'Вимкнути взагалі'},
+                value='12_24'
+            ).bind_value(settings, 'pre_chime_mode').classes('w-1/2')
 
-        # 1. Передаточне число
+        # ==========================================
+        # 2. ЗАВАНТАЖЕННЯ СИСТЕМНИХ ЗВУКІВ (НОВИЙ БЛОК)
+        # ==========================================
+        ui.label('📂 Заміна системних файлів').classes('text-subtitle2 font-bold mt-6 mb-1 text-gray-800')
+        ui.label(
+            'Завантажте ваші аудіофайли сюди. Програма автоматично перейменує їх для правильної роботи Оркестратора.').classes(
+            'text-sm text-gray-500 mb-4')
+
+        with ui.row().classes('w-full justify-between gap-4 mb-6'):
+            def create_sys_uploader(title, target_filename, icon_name):
+                with ui.column().classes('items-center border p-4 rounded-lg flex-1 bg-gray-50'):
+                    ui.icon(icon_name, size='2rem', color='gray-400')
+                    ui.label(title).classes('font-medium text-center mt-2')
+                    ui.label(target_filename).classes('text-xs text-blue-600 font-mono mb-2')
+
+                    async def handle(e, name=target_filename, t=title):
+                        media_dir = Path("storage/media")
+                        media_dir.mkdir(parents=True, exist_ok=True)
+
+                        # Тут ми ЖОРСТКО ПЕРЕЗАПИСУЄМО файл під потрібним іменем
+                        file_bytes = await e.file.read()
+                        with open(media_dir / name, 'wb') as f:
+                            f.write(file_bytes)
+
+                        ui.notify(f'{t} успішно оновлено!', type='positive')
+                        # Очищаємо компонент після завантаження
+                        e.sender.reset()
+
+                    ui.upload(on_upload=handle, auto_upload=True, multiple=False, label="Завантажити").classes(
+                        'w-full').props('accept=".mp3,.wav,.ogg"')
+
+            # Створюємо 3 спеціальні завантажувачі
+            create_sys_uploader('Переддзвін (Довга мелодія)', 'melody.mp3', 'music_note')
+            create_sys_uploader('Бій курантів (1 удар)', 'knock.mp3', 'notifications_active')
+            create_sys_uploader('Вокзальний гонг (Увага)', 'attention.mp3', 'campaign')
+
+        ui.separator().classes('mb-6')
+
+        # ==========================================
+        # 3. НАЛАШТУВАННЯ МЕХАНІКИ
+        # ==========================================
+        ui.label('⚙️ Налаштування механіки (Шестерні)').classes('text-subtitle1 font-bold mb-2')
         with ui.row().classes('w-full items-center mb-6'):
             ui.label('Кроків на 1 хвилину:').classes('w-1/3 font-medium text-gray-700')
             ui.number(value=125).bind_value(settings, 'steps_per_minute_dial').classes('w-1/4')
-            ui.label('(Якщо 1 год = 7500 кроків, то 1 хв = 125)').classes('w-1/3 text-xs text-gray-400 ml-4')
 
-        ui.separator().classes('mb-6')
-        ui.label('Швидкість руху стрілок').classes('font-bold text-gray-700 mb-4')
-
-        # 2. Швидкість звичайного ходу
         with ui.row().classes('w-full items-center mb-6'):
             ui.label('Звичайний крок триває:').classes('w-1/3 font-medium text-gray-700')
-            ui.slider(min=0.5, max=60.0, step=0.5).bind_value(settings, 'normal_move_sec').classes('w-1/3')
+            ui.slider(min=0.5, max=10.0, step=0.5).bind_value(settings, 'normal_move_sec').classes('w-1/3')
             ui.number(suffix=' сек').bind_value(settings, 'normal_move_sec').classes('w-1/5 ml-4')
 
-        # 3. Швидкість калібрування
         with ui.row().classes('w-full items-center mb-8'):
             ui.label('Крок калібрування триває:').classes('w-1/3 font-medium text-gray-700')
             ui.slider(min=0.05, max=2.0, step=0.05).bind_value(settings, 'fast_move_sec').classes(
                 'w-1/3 text-orange-500')
             ui.number(suffix=' сек').bind_value(settings, 'fast_move_sec').classes('w-1/5 ml-4')
+        ui.separator().classes('my-6')
+        ui.label('🔐 Безпека').classes('text-subtitle1 font-bold mb-2')
 
-        ui.button('Зберегти параметри механіки', on_click=lambda: save_settings(settings), icon='save').classes(
-            'w-full bg-green-600 shadow-md')
+        with ui.row().classes('w-full items-center gap-4 mb-4'):
+            new_pass = ui.input('Новий пароль адміністратора', password=True, password_toggle_button=True).classes(
+                'flex-1')
+
+            def change_pass():
+                if len(new_pass.value) < 4:
+                    ui.notify('Пароль занадто короткий!', type='negative')
+                    return
+                # Беремо ім'я поточного користувача з сесії app.storage.user
+                username = app.storage.user.get('username', 'admin')
+                if update_user_password(username, new_pass.value):
+                    ui.notify('Пароль успішно змінено!', type='positive')
+                    new_pass.value = ''
+                else:
+                    ui.notify('Помилка бази даних', type='negative')
+
+            ui.button('Оновити пароль', on_click=change_pass, icon='lock_reset').classes('bg-orange-600')
+        ui.button('Зберегти параметри', on_click=lambda: save_settings(settings), icon='save').classes(
+            'w-full bg-green-600 shadow-md text-white')
+        ui.separator().classes('my-6')
+        ui.label('📡 Мережа та Система').classes('text-subtitle1 font-bold mb-2')
+
+        with ui.card().classes('w-full p-4 border border-blue-200 bg-blue-50'):
+            ui.label('Налаштування Wi-Fi Точки доступу').classes('font-bold text-blue-900 mb-4')
+
+            with ui.row().classes('w-full gap-4 items-center'):
+                wifi_ssid = ui.input('Назва (SSID)', value='TowerClock').classes('flex-1 bg-white px-2 rounded')
+                wifi_pass = ui.input('Пароль Wi-Fi', value='This is tower clock of KPI').classes('flex-1 bg-white px-2 rounded')
+
+                async def apply_wifi():
+                    if len(wifi_pass.value) < 8:
+                        ui.notify('Паро password має бути мін. 8 символів!', type='negative')
+                        return
+
+                    # Попереджаємо, що з'єднання розірветься
+                    with ui.dialog() as diag, ui.card():
+                        ui.label(
+                            'Увага! Після зміни налаштувань Wi-Fi ваш пристрій від’єднається. Бажаєте продовжити?').classes(
+                            'mb-4')
+                        with ui.row():
+                            ui.button('ТАК', on_click=lambda: diag.submit(True), color='primary')
+                            ui.button('Скасувати', on_click=lambda: diag.submit(False), color='gray')
+
+                    if await diag:
+                        ui.notify('Застосування... Перепідключіться до нової мережі через хвилину.', type='warning')
+                        update_wifi_settings(wifi_ssid.value, wifi_pass.value)
+
+                ui.button('Застосувати', icon='wifi', on_click=apply_wifi).classes('bg-blue-600 text-white')
+
+        # Блок перезавантаження (виносимо окремо, щоб випадково не натиснути)
+        with ui.row().classes('w-full justify-end mt-8'):
+            async def confirm_reboot():
+                with ui.dialog() as diag, ui.card():
+                    ui.label('Ви впевнені, що хочете ПЕРЕЗАВАНТАЖИТИ контролер?').classes('text-h6 mb-4')
+                    ui.label('Система буде недоступна приблизно 1-2 хвилини.').classes('mb-4 text-gray-500')
+                    with ui.row().classes('w-full justify-end gap-4'):
+                        ui.button('СКАСУВАТИ', on_click=lambda: diag.submit(False), color='gray')
+                        ui.button('ПЕРЕЗАВАНТАЖИТИ', on_click=lambda: diag.submit(True), color='red')
+
+                if await diag:
+                    ui.notify('Команда відправлена. До зустрічі через хвилину!', type='negative')
+                    reboot_pi()
+
+            ui.button('Перезавантажити Orange Pi', icon='restart_alt', on_click=confirm_reboot).classes(
+                'bg-red-800 text-white shadow-lg')

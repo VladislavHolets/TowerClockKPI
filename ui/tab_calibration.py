@@ -1,13 +1,7 @@
 from nicegui import ui
 from datetime import datetime
 from core.state import clock_state
-
-
-def step_motor(minutes: int):
-    """Тимчасова заглушка для мотора"""
-    direction = "ВПЕРЕД" if minutes >= 0 else "НАЗАД"
-    ui.notify(f'Двигун: крутимо {abs(minutes)} хв {direction}...', type='info')
-
+from hardware.motor import step_motor
 
 def calculate_and_sync(hands_time_str: str):
     """Математика синхронізації (Двостороння)"""

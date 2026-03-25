@@ -1,6 +1,7 @@
 import yaml
 from sqlmodel import SQLModel, Session, create_engine, select
 from .models import User, AudioEvent, SystemSetting
+from auth.security import get_password_hash, verify_password
 
 # 1. Читаємо шлях до БД з нашого конфігу
 with open("settings.yaml", "r", encoding="utf-8") as file:
@@ -19,21 +20,43 @@ def create_db_and_tables():
 
 
 def init_default_data():
-    """Заповнює базу базовими даними при першому запуску."""
+    """Заповнює базу базовими даними та створює адміна при першому запуску."""
     with Session(engine) as session:
-        # Перевіряємо, чи є вже глобальні налаштування
+        # 1. Глобальні налаштування
         existing_settings = session.exec(select(SystemSetting)).first()
         if not existing_settings:
-            # Якщо немає, створюємо їх із значеннями за замовчуванням (з models.py)
-            default_settings = SystemSetting()
-            session.add(default_settings)
+            session.add(SystemSetting())
 
-        # Пізніше тут ми додамо створення користувача "admin" за замовчуванням,
-        # коли налаштуємо систему хешування паролів.
+        # 2. Створення адміністратора за замовчуванням (якщо його ще немає)
+        existing_admin = session.exec(select(User).where(User.username == "admin")).first()
+        if not existing_admin:
+            print("[АВТОРИЗАЦІЯ] Створюю користувача 'admin' з паролем 'admin123'")
+            admin_user = User(
+                username="admin",
+                hashed_password=get_password_hash("admin123"),
+                role="admin"
+            )
+            session.add(admin_user)
 
         session.commit()
 
+def verify_user(username: str, plain_password: str) -> bool:
+    """Перевіряє логін і пароль під час входу в систему"""
+    with Session(engine) as session:
+        user = session.exec(select(User).where(User.username == username)).first()
+        if not user:
+            return False
+        return verify_password(plain_password, user.hashed_password)
 
+def update_user_password(username: str, new_password: str):
+    with Session(engine) as session:
+        user = session.exec(select(User).where(User.username == username)).first()
+        if user:
+            user.hashed_password = get_password_hash(new_password)
+            session.add(user)
+            session.commit()
+            return True
+    return False
 # --- Базові функції для роботи з подіями (CRUD) ---
 
 def get_all_events() -> list[AudioEvent]:
@@ -43,14 +66,16 @@ def get_all_events() -> list[AudioEvent]:
         return list(events)
 
 
-def add_audio_event(name: str, cron_expression: str, media_file: str, event_type: str = "bell") -> AudioEvent:
+# ОНОВЛЕНО: додано параметр play_attention
+def add_audio_event(name: str, cron_expression: str, media_file: str, event_type: str = "bell", play_attention: bool = False) -> AudioEvent:
     """Додає нову подію до розкладу."""
     with Session(engine) as session:
         new_event = AudioEvent(
             name=name,
             cron_expression=cron_expression,
             media_file=media_file,
-            event_type=event_type
+            event_type=event_type,
+            play_attention=play_attention  # Зберігаємо галочку гонгу
         )
         session.add(new_event)
         session.commit()
@@ -75,7 +100,8 @@ def delete_audio_event(event_id: int):
             session.delete(event)
             session.commit()
 
-def update_audio_event(event_id: int, name: str, cron_expression: str, media_file: str):
+# ОНОВЛЕНО: додано параметр play_attention
+def update_audio_event(event_id: int, name: str, cron_expression: str, media_file: str, play_attention: bool):
     """Оновлює існуючу подію"""
     with Session(engine) as session:
         event = session.get(AudioEvent, event_id)
@@ -83,6 +109,7 @@ def update_audio_event(event_id: int, name: str, cron_expression: str, media_fil
             event.name = name
             event.cron_expression = cron_expression
             event.media_file = media_file
+            event.play_attention = play_attention  # Оновлюємо галочку гонгу
             session.add(event)
             session.commit()
 

@@ -6,28 +6,38 @@ from database.crud import get_all_events
 
 # Підключаємо наші апаратні модулі
 from hardware.motor import step_motor
-from hardware.audio import play_audio
-
+from hardware.audio import play_hourly_sequence, play_scheduled_event
 scheduler = BackgroundScheduler()
 
 
 def tick_minute():
-    """Ця функція викликається рівно на 00 секунді кожної хвилини."""
-    now = datetime.datetime.now().strftime('%H:%M:%S')
-    print(f"[{now}] ФОН: Хвилинний тік. -> Відправляємо імпульс на кроковий двигун!")
+    """Фоновий процес (викликається рівно на 00 секунді кожної хвилини)"""
+    # 1. Отримуємо СПРАВЖНІЙ об'єкт часу для математики
+    now = datetime.datetime.now()
 
-    # Викликаємо реальний рух (1 хвилина вперед)
+    # 2. Робимо окрему текстову змінну для красивого логування
+    now_str = now.strftime('%H:%M:%S')
+    print(f"[{now_str}] ФОН: Хвилинний тік. -> Відправляємо імпульс на двигун!")
+
+    # 3. Рухаємо стрілки
     step_motor(1)
 
+    # 4. Тепер математика працює ідеально, бо now - це об'єкт datetime
+    if now.minute == 0:
+        play_hourly_sequence(now.hour)
 
-def execute_audio_event(event_name: str, media_file: str):
-    """Ця функція викликається, коли настає час для аудіо події з БД."""
+
+def execute_audio_event(event_name: str, media_file: str, play_attention: bool):
+    """Фоновий процес для подій з БД"""
     now = datetime.datetime.now()
-    print(f"[{now.strftime('%H:%M:%S')}] ФОН: Настав час для події '{event_name}'")
+    print(f"[{now.strftime('%H:%M:%S')}] Планувальник відправив у чергу подію: '{event_name}'")
 
-    # Передаємо файл у драйвер (він сам перевірить період тиші)
-    play_audio(media_file)
+    # Ніяких sleep(). Просто кидаємо в чергу. Пріоритетність розбереться сама.
+    play_scheduled_event(media_file, play_attention)
 
+
+
+# Не забудьте в reload_jobs() додати args=[event.name, event.media_file, event.play_attention]
 
 def reload_jobs():
     """Очищає розклад і завантажує його наново з бази даних."""
@@ -53,7 +63,7 @@ def reload_jobs():
                     scheduler.add_job(
                         execute_audio_event,
                         trigger=DateTrigger(run_date=run_datetime),
-                        args=[event.name, event.media_file],
+                        args=[event.name, event.media_file,event.play_attention],
                         id=f"event_{event.id}"
                     )
                     print(f"Заплановано разову подію: '{event.name}' на {run_datetime}")
@@ -64,7 +74,7 @@ def reload_jobs():
                 scheduler.add_job(
                     execute_audio_event,
                     trigger=trigger,
-                    args=[event.name, event.media_file],
+                    args=[event.name, event.media_file,event.play_attention],
                     id=f"event_{event.id}"
                 )
                 print(f"Заплановано регулярну подію: '{event.name}' [{event.cron_expression}]")
