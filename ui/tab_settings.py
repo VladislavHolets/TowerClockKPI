@@ -1,4 +1,5 @@
 import subprocess
+import sys
 from pathlib import Path
 from nicegui import ui, app
 from database.crud import get_system_settings, engine, update_user_password
@@ -24,13 +25,14 @@ def build_settings_tab():
         # 1. ЛОГІКА СИСТЕМНИХ ЗВУКІВ
         # ==========================================
         ui.label('Логіка системних звуків').classes('text-subtitle1 font-bold mb-2')
+        ui.label('Коли грати переддзвін (мелодію перед ударами):').classes('w-1/2 font-medium text-gray-700')
         with ui.row().classes('w-full items-center mb-2'):
-            ui.label('Коли грати переддзвін (мелодію перед ударами):').classes('w-1/2 font-medium text-gray-700')
             ui.select(
                 options={'12_24': 'Тільки о 12:00 та 00:00', 'hourly': 'Щогодини', 'none': 'Вимкнути взагалі'},
                 value='12_24'
-            ).bind_value(settings, 'pre_chime_mode').classes('w-1/2')
-
+            ).bind_value(settings, 'pre_chime_mode').classes('flex-1')
+            ui.button('Зберегти', on_click=lambda: save_settings(settings), icon='save').classes(
+            'flex-1 bg-primary shadow-md text-white')
         # ==========================================
         # 2. ЗАВАНТАЖЕННЯ СИСТЕМНИХ ЗВУКІВ (НОВИЙ БЛОК)
         # ==========================================
@@ -57,7 +59,7 @@ def build_settings_tab():
 
                         ui.notify(f'{t} успішно оновлено!', type='positive')
                         # Очищаємо компонент після завантаження
-                        e.sender.reset()
+                        #e.sender.reset()
 
                     ui.upload(on_upload=handle, auto_upload=True, multiple=False, label="Завантажити").classes(
                         'w-full').props('accept=".mp3,.wav,.ogg"')
@@ -102,33 +104,39 @@ def build_settings_tab():
                 def check_update():
                     update_status.set_text('Стан: Зв\'язок з GitHub...')
                     try:
-                        # Завантажуємо інформацію про нові коміти без їх застосування
+                        # Завантажуємо інформацію про гілку з сервера
                         subprocess.run(['git', 'fetch'], check=True, capture_output=True)
 
-                        # Порівнюємо локальну версію та віддалену
-                        local = subprocess.check_output(['git', 'rev-parse', '@']).strip()
-                        remote = subprocess.check_output(['git', 'rev-parse', '@{u}']).strip()
+                        # Рахуємо, на скільки комітів наша локальна версія ВІДСТАЄ від сервера
+                        behind_count_str = subprocess.check_output(
+                            ['git', 'rev-list', 'HEAD..@{u}', '--count']
+                        ).decode('utf-8').strip()
 
-                        if local == remote:
+                        commits_behind = int(behind_count_str)
+
+                        if commits_behind == 0:
                             update_status.set_text('Стан: У вас встановлена остання версія ✅')
                             update_status.classes(replace='text-positive mb-4 font-bold')
                             btn_apply_update.set_visibility(False)
                         else:
-                            update_status.set_text('Стан: Знайдено нові коміти! Доступне оновлення 🚀')
+                            update_status.set_text(f'Стан: Доступне оновлення ({commits_behind} нових комітів) 🚀')
                             update_status.classes(replace='text-accent mb-4 font-bold')
                             btn_apply_update.set_visibility(True)
                     except Exception as e:
-                        update_status.set_text(f'Помилка перевірки (немає інтернету або репозиторію): {e}')
+                        update_status.set_text(f'Помилка перевірки (перевірте інтернет): {e}')
                         update_status.classes(replace='text-negative mb-4 font-bold')
 
                 def apply_update():
-                    ui.notify('Завантаження коду та перезапуск служби...', type='warning', timeout=5000)
+                    ui.notify('Оновлення коду та залежностей... Система перезапуститься.', type='warning',
+                              timeout=10000)
                     try:
-                        # Примусово синхронізуємо локальні файли з гітхабом
+                        # 1. Примусово синхронізуємо локальні файли з гітхабом
                         subprocess.run(['git', 'reset', '--hard'], check=True)
                         subprocess.run(['git', 'pull'], check=True)
 
-                        # Перезапускаємо саму службу (це вб'є поточний процес і запустить новий)
+                        # 2. Оновлюємо залежності (якщо з'явилися нові бібліотеки)
+                        subprocess.run([sys.executable, '-m', 'pip', 'install', '-r', 'requirements.txt'], check=True)
+                        # 3. Перезапускаємо саму службу (вб'є поточний процес і запустить новий)
                         subprocess.Popen(['systemctl', 'restart', 'towerclock.service'])
                     except Exception as e:
                         ui.notify(f'Помилка оновлення: {e}', type='negative')
@@ -138,8 +146,7 @@ def build_settings_tab():
                 # Кнопка встановлення (спочатку прихована)
                 btn_apply_update = ui.button('Встановити та Перезапустити', icon='download',
                                              on_click=apply_update).classes('bg-primary text-white')
-                btn_apply_update.set_visibility(False)
-        # ==========================================
+                btn_apply_update.set_visibility(False)        # ==========================================
         # МЕРЕЖА І СИСТЕМА
         # ==========================================
         ui.separator().classes('my-6')

@@ -105,7 +105,7 @@ def build_dashboard_tab():
                             ui.button('+1 хв', on_click=lambda: step_motor(1), color='primary').props('size=sm')
                             ui.button('+5 хв', on_click=lambda: step_motor(5), color='primary').props('size=sm')
 
-                    # Рух НАЗАД (Тепер це працюватиме!)
+                    # Рух НАЗАД
                     with ui.row().classes(
                             'w-full justify-between items-center bg-gray-100 p-2 rounded border border-gray-300 mt-2'):
                         ui.label('Назад:').classes('font-medium text-sm text-accent')
