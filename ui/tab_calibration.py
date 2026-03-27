@@ -44,7 +44,7 @@ def build_calibration_tab():
     with ui.row().classes('items-center gap-4 mb-6 p-4 bg-white rounded shadow-sm w-full justify-center border'):
         ui.label('Еталонний час сервера (NTP):').classes('text-gray-600 text-lg')
         # МАГІЯ ТУТ: Безпечна прив'язка (bind) до глобального стану замість ui.timer
-        ui.label().bind_text_from(clock_state, 'time_str').classes('font-mono font-bold text-3xl text-blue-800')
+        ui.label().bind_text_from(clock_state, 'time_str').classes('font-mono font-bold text-3xl text-primary')
 
     with ui.row().classes('w-full gap-6 items-stretch'):
         # 1. Відносне керування
@@ -54,9 +54,9 @@ def build_calibration_tab():
                 'text-caption text-gray-500 mb-6')
 
             with ui.row().classes('w-full gap-2 mb-6'):
-                ui.button('+ 1 хв', on_click=lambda: step_motor(1)).classes('flex-1 bg-blue-500')
-                ui.button('+ 5 хв', on_click=lambda: step_motor(5)).classes('flex-1 bg-blue-600')
-                ui.button('+ 10 хв', on_click=lambda: step_motor(10)).classes('flex-1 bg-blue-700')
+                ui.button('+ 1 хв', on_click=lambda: step_motor(1)).classes('flex-1 bg-info')
+                ui.button('+ 5 хв', on_click=lambda: step_motor(5)).classes('flex-1 bg-secondary')
+                ui.button('+ 10 хв', on_click=lambda: step_motor(10)).classes('flex-1 bg-primary')
 
             ui.separator()
 
@@ -65,8 +65,8 @@ def build_calibration_tab():
                 ui.button('Крутити', on_click=lambda: step_motor(int(custom_minutes.value))).classes('bg-green-600')
 
         # 2. Розумна синхронізація (Матеріал Циферблат)
-        with ui.card().classes('flex-1 p-6 bg-blue-50 border border-blue-200'):
-            ui.label('Розумна синхронізація (Абсолютне)').classes('text-subtitle1 font-bold text-blue-900 mb-2')
+        with ui.card().classes('flex-1 p-6 bg-gray-100 border border-secondary'):
+            ui.label('Розумна синхронізація (Абсолютне)').classes('text-subtitle1 font-bold text-primary mb-2')
             ui.label('Введіть час, який зараз фізично показують стрілки.').classes('text-caption text-gray-700 mb-6')
 
             with ui.input('Час на стрілках (ГГ:ХХ)', value='12:00').classes(
@@ -74,8 +74,8 @@ def build_calibration_tab():
                 with ui.menu().classes('p-0') as time_menu:
                     ui.time().bind_value(time_picker_input)
                 with time_picker_input.add_slot('append'):
-                    ui.icon('access_time').classes('cursor-pointer text-blue-600').on('click', time_menu.open)
+                    ui.icon('access_time').classes('cursor-pointer text-primary').on('click', time_menu.open)
 
             ui.space()
             ui.button('РОЗРАХУВАТИ ТА СИНХРОНІЗУВАТИ', on_click=lambda: calculate_and_sync(time_picker_input.value),
-                      icon='sync').classes('w-full bg-orange-600 text-white font-bold py-3 shadow-md')
+                      icon='sync').classes('w-full bg-accent text-white font-bold py-3 shadow-md')

@@ -1,5 +1,4 @@
 import yaml
-from docutils.nodes import title
 from nicegui import ui, app
 
 from database.crud import create_db_and_tables, init_default_data
@@ -14,6 +13,8 @@ server_host = config["server"]["host"]
 server_port = config["server"]["port"]
 secret_key = config["server"]["secret_key"]
 title = config["server"]["title"]
+app.add_static_files('/static', 'static')
+favicon_path = config['paths']['favicon']
 # ==========================================
 # 1. ВЕБ-ІНТЕРФЕЙС
 # ==========================================
@@ -49,6 +50,7 @@ if __name__ in {"__main__", "__mp_main__"}:
         host=server_host,
         port=server_port,
         title=title,
+        favicon=favicon_path,
         storage_secret=secret_key,
         dark=False,
         show=False,

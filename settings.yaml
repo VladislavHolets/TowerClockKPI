@@ -4,7 +4,8 @@ server:
   host: "0.0.0.0"
   port: 80
   secret_key: "test_key" # Для безпеки сесій
-  title: "YADRO | Годинник КПІ"
+  title: "Годинникова вежа КПІ"
+
 hardware:
   motor_step_pin: 0
   motor_dir_pin: 1
@@ -15,3 +16,4 @@ hardware:
 paths:
   db_url: "sqlite:///storage/clock.sqlite"
   media_path: "storage/media"
+  favicon: "static/logo.png"

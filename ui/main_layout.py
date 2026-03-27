@@ -10,28 +10,64 @@ from .tab_settings import build_settings_tab
 
 def create_layout():
     """Створює головну оболонку веб-застосунку з навігацією"""
+    ui.add_head_html('''
+        <style>
+            /* Звичайний шрифт (Regular) */
+            @font-face {
+                font-family: 'Exo 2';
+                src: url('/static/fonts/Exo2-Regular.ttf') format('truetype');
+                font-weight: 400;
+                font-style: normal;
+            }
 
+            /* Напівжирний шрифт (SemiBold) */
+            @font-face {
+                font-family: 'Exo 2';
+                src: url('/static/fonts/Exo2-SemiBold.ttf') format('truetype');
+                font-weight: 600;
+                font-style: normal;
+            }
+
+            /* Застосовуємо шрифт Exo 2 до всіх елементів тексту */
+            body, .nicegui-content, .q-tab__label, .q-btn__content, .q-input, 
+            .text-h5, .text-h6, .text-subtitle1, .text-subtitle2 {
+                font-family: 'Exo 2', sans-serif !important;
+            }
+
+            /* ПРИМУСОВО переводимо всі "жирні" класи на SemiBold (600), як вимагає брендбук */
+            b, strong, .font-bold, .text-bold {
+                font-weight: 600 !important;
+            }
+        </style>
+    ''')
     # Запускаємо таймер, який щосекунди оновлює глобальний годинник для цього клієнта
     ui.timer(1.0, lambda: setattr(clock_state, 'time_str', datetime.now().strftime("%H:%M:%S")))
 
-    ui.colors(primary='#1976d2', secondary='#26a69a', accent='#9c27b0')
-
+    ui.colors(
+        primary='#1c396e',  # Основний темно-синій КПІ
+        secondary='#1062a3',  # Додатковий синій
+        accent='#f07d00',  # Помаранчевий
+        negative='#7f0d38',  # Бордовий (для помилок/видалення)
+        warning='#ec6605',  # Темно-помаранчевий
+        positive='#21ba45',  # Залишимо стандартний зелений для успішних дій (у брендбуці немає чистого зеленого)
+        info='#008acf'  # Блакитний для інформації
+    )
     def logout():
         app.storage.user['authenticated'] = False
         app.storage.user.clear()  # Повністю очищаємо дані сесії
         ui.navigate.to('/login')
 
-    with ui.header().classes('row items-center justify-between px-4 py-2 shadow-md bg-blue-700'):
+    with ui.header().classes('row items-center justify-between px-4 py-2 shadow-md bg-primary'):
         with ui.row().classes('items-center gap-2'):
             ui.icon('schedule', size='md', color='white')
-            ui.label('YADRO | Годинник Головного Корпусу').classes('text-h6 font-bold text-white')
+            ui.label('Годинникова вежа КПІ ім. Ігоря Сікорського').classes('text-h6 font-bold text-white')
 
         # Кнопка виходу в правому куті
         with ui.row().classes('items-center gap-4'):
             ui.label(app.storage.user.get('username', 'Admin')).classes('text-white font-medium')
             ui.button(icon='logout', on_click=logout).props('flat round color=white').tooltip('Вийти з системи')
 
-    with ui.tabs().classes('w-full bg-blue-50 text-blue-900 shadow-sm') as tabs:
+    with ui.tabs().classes('w-full bg-gray-200 text-primary shadow-sm') as tabs:
         tab_dash = ui.tab('Дашборд', icon='dashboard')
         tab_sched = ui.tab('Розклад', icon='list_alt')
         tab_calib = ui.tab('Калібрування', icon='build')
@@ -49,3 +85,8 @@ def create_layout():
 
         with ui.tab_panel(tab_set):
             build_settings_tab()
+
+    with ui.footer().classes(
+            'bg-white border-t border-gray-200 p-2 justify-center shadow-[0_-1px_3px_rgba(0,0,0,0.05)]'):
+        with ui.row().classes('items-center gap-2'):
+            ui.label('Виробничий центр "Ядро" | КПІ ім. Ігоря Сікорського').classes('text-xs text-gray-500 font-medium')

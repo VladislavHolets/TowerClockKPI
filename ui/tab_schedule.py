@@ -118,7 +118,7 @@ def build_schedule_tab():
                 with ui.menu().classes('p-0').props('anchor="bottom left" self="top left"') as daily_time_menu:
                     ui.time().bind_value(daily_time)
                 with daily_time.add_slot('append'):
-                    ui.icon('access_time').classes('cursor-pointer text-blue-600').on('click', daily_time_menu.open)
+                    ui.icon('access_time').classes('cursor-pointer text-primary').on('click', daily_time_menu.open)
 
         with ui.column().classes('w-full gap-2') as weekly_container:
             with ui.element('div').classes('w-full'):
@@ -126,7 +126,7 @@ def build_schedule_tab():
                 with ui.menu().classes('p-0').props('anchor="bottom left" self="top left"') as weekly_time_menu:
                     ui.time().bind_value(weekly_time)
                 with weekly_time.add_slot('append'):
-                    ui.icon('access_time').classes('cursor-pointer text-blue-600').on('click', weekly_time_menu.open)
+                    ui.icon('access_time').classes('cursor-pointer text-primary').on('click', weekly_time_menu.open)
 
             days_options = {'1': 'Пн', '2': 'Вт', '3': 'Ср', '4': 'Чт', '5': 'Пт', '6': 'Сб', '0': 'Нд'}
             weekly_days = ui.select(options=days_options, multiple=True, label='Дні тижня',
@@ -139,7 +139,7 @@ def build_schedule_tab():
                 with ui.menu().classes('p-0').props('anchor="bottom left" self="top left"') as once_date_menu:
                     ui.date(mask='YYYY-MM-DD').bind_value(once_date)
                 with once_date.add_slot('append'):
-                    ui.icon('calendar_today').classes('cursor-pointer text-blue-600').on('click', once_date_menu.open)
+                    ui.icon('calendar_today').classes('cursor-pointer text-primary').on('click', once_date_menu.open)
 
             # 2. Блок ЧАСУ
             with ui.element('div').classes('w-full'):
@@ -147,7 +147,7 @@ def build_schedule_tab():
                 with ui.menu().classes('p-0').props('anchor="bottom left" self="top left"') as once_time_menu:
                     ui.time().bind_value(once_time)
                 with once_time.add_slot('append'):
-                    ui.icon('access_time').classes('cursor-pointer text-blue-600').on('click', once_time_menu.open)
+                    ui.icon('access_time').classes('cursor-pointer text-primary').on('click', once_time_menu.open)
 
         def update_visibility():
             hourly_container.set_visibility(schedule_type.value == 'hourly')
@@ -258,9 +258,9 @@ def build_schedule_tab():
         ui.label('Список запланованих подій').classes('text-subtitle1 text-gray-600')
         with ui.row().classes('gap-4'):
             # Додали кнопку Керування файлами
-            ui.button('Файли', on_click=manage_media_dialog.open, icon='folder').classes('bg-purple-600')
-            ui.button('Завантажити аудіо', on_click=upload_dialog.open, icon='upload_file').classes('bg-blue-600')
-            ui.button('Додати подію', on_click=open_create_dialog, icon='add').classes('bg-green-600')
+            ui.button('Файли', on_click=manage_media_dialog.open, icon='folder').classes('bg-secondary')
+            ui.button('Завантажити аудіо', on_click=upload_dialog.open, icon='upload_file').classes('bg-primary')
+            ui.button('Додати подію', on_click=open_create_dialog, icon='add').classes('bg-accent text-white font-bold')
 
     # ==========================================
     # 5. ТАБЛИЦЯ ПОДІЙ

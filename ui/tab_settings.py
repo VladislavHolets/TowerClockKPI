@@ -1,3 +1,4 @@
+import subprocess
 from pathlib import Path
 from nicegui import ui, app
 from database.crud import get_system_settings, engine, update_user_password
@@ -22,7 +23,7 @@ def build_settings_tab():
         # ==========================================
         # 1. ЛОГІКА СИСТЕМНИХ ЗВУКІВ
         # ==========================================
-        ui.label('🎵 Логіка системних звуків').classes('text-subtitle1 font-bold mb-2')
+        ui.label('Логіка системних звуків').classes('text-subtitle1 font-bold mb-2')
         with ui.row().classes('w-full items-center mb-2'):
             ui.label('Коли грати переддзвін (мелодію перед ударами):').classes('w-1/2 font-medium text-gray-700')
             ui.select(
@@ -33,7 +34,7 @@ def build_settings_tab():
         # ==========================================
         # 2. ЗАВАНТАЖЕННЯ СИСТЕМНИХ ЗВУКІВ (НОВИЙ БЛОК)
         # ==========================================
-        ui.label('📂 Заміна системних файлів').classes('text-subtitle2 font-bold mt-6 mb-1 text-gray-800')
+        ui.label('Заміна системних файлів').classes('text-subtitle2 font-bold mt-6 mb-1 text-gray-800')
         ui.label(
             'Завантажте ваші аудіофайли сюди. Програма автоматично перейменує їх для правильної роботи Оркестратора.').classes(
             'text-sm text-gray-500 mb-4')
@@ -43,7 +44,7 @@ def build_settings_tab():
                 with ui.column().classes('items-center border p-4 rounded-lg flex-1 bg-gray-50'):
                     ui.icon(icon_name, size='2rem', color='gray-400')
                     ui.label(title).classes('font-medium text-center mt-2')
-                    ui.label(target_filename).classes('text-xs text-blue-600 font-mono mb-2')
+                    ui.label(target_filename).classes('text-xs text-secondary font-mono mb-2')
 
                     async def handle(e, name=target_filename, t=title):
                         media_dir = Path("storage/media")
@@ -71,7 +72,7 @@ def build_settings_tab():
         # ==========================================
         # 3. НАЛАШТУВАННЯ МЕХАНІКИ
         # ==========================================
-        ui.label('⚙️ Налаштування механіки (Шестерні)').classes('text-subtitle1 font-bold mb-2')
+        ui.label('Налаштування механіки (Шестерні)').classes('text-subtitle1 font-bold mb-2')
         with ui.row().classes('w-full items-center mb-6'):
             ui.label('Кроків на 1 хвилину:').classes('w-1/3 font-medium text-gray-700')
             ui.number(value=125).bind_value(settings, 'steps_per_minute_dial').classes('w-1/4')
@@ -84,11 +85,65 @@ def build_settings_tab():
         with ui.row().classes('w-full items-center mb-8'):
             ui.label('Крок калібрування триває:').classes('w-1/3 font-medium text-gray-700')
             ui.slider(min=0.05, max=2.0, step=0.05).bind_value(settings, 'fast_move_sec').classes(
-                'w-1/3 text-orange-500')
+                'w-1/3 text-accent')
             ui.number(suffix=' сек').bind_value(settings, 'fast_move_sec').classes('w-1/5 ml-4')
+        ui.button('Зберегти параметри', on_click=lambda: save_settings(settings), icon='save').classes(
+            'w-full bg-primary shadow-md text-white')
+        # ==========================================
+        # БЛОК OTA-ОНОВЛЕНЬ (GITHUB)
+        # ==========================================
         ui.separator().classes('my-6')
-        ui.label('🔐 Безпека').classes('text-subtitle1 font-bold mb-2')
+        ui.label('Оновлення системи (GitHub)').classes('text-subtitle1 font-bold mb-2')
 
+        with ui.card().classes('w-full p-4 border border-gray-200 bg-gray-50'):
+            update_status = ui.label('Стан: Готово до перевірки').classes('text-gray-600 mb-4 font-medium')
+
+            with ui.row().classes('gap-4 items-center'):
+                def check_update():
+                    update_status.set_text('Стан: Зв\'язок з GitHub...')
+                    try:
+                        # Завантажуємо інформацію про нові коміти без їх застосування
+                        subprocess.run(['git', 'fetch'], check=True, capture_output=True)
+
+                        # Порівнюємо локальну версію та віддалену
+                        local = subprocess.check_output(['git', 'rev-parse', '@']).strip()
+                        remote = subprocess.check_output(['git', 'rev-parse', '@{u}']).strip()
+
+                        if local == remote:
+                            update_status.set_text('Стан: У вас встановлена остання версія ✅')
+                            update_status.classes(replace='text-positive mb-4 font-bold')
+                            btn_apply_update.set_visibility(False)
+                        else:
+                            update_status.set_text('Стан: Знайдено нові коміти! Доступне оновлення 🚀')
+                            update_status.classes(replace='text-accent mb-4 font-bold')
+                            btn_apply_update.set_visibility(True)
+                    except Exception as e:
+                        update_status.set_text(f'Помилка перевірки (немає інтернету або репозиторію): {e}')
+                        update_status.classes(replace='text-negative mb-4 font-bold')
+
+                def apply_update():
+                    ui.notify('Завантаження коду та перезапуск служби...', type='warning', timeout=5000)
+                    try:
+                        # Примусово синхронізуємо локальні файли з гітхабом
+                        subprocess.run(['git', 'reset', '--hard'], check=True)
+                        subprocess.run(['git', 'pull'], check=True)
+
+                        # Перезапускаємо саму службу (це вб'є поточний процес і запустить новий)
+                        subprocess.Popen(['systemctl', 'restart', 'towerclock.service'])
+                    except Exception as e:
+                        ui.notify(f'Помилка оновлення: {e}', type='negative')
+
+                ui.button('Перевірити оновлення', icon='sync', on_click=check_update).classes('bg-secondary text-white')
+
+                # Кнопка встановлення (спочатку прихована)
+                btn_apply_update = ui.button('Встановити та Перезапустити', icon='download',
+                                             on_click=apply_update).classes('bg-primary text-white')
+                btn_apply_update.set_visibility(False)
+        # ==========================================
+        # МЕРЕЖА І СИСТЕМА
+        # ==========================================
+        ui.separator().classes('my-6')
+        ui.label('Безпека').classes('text-subtitle1 font-bold mb-2')
         with ui.row().classes('w-full items-center gap-4 mb-4'):
             new_pass = ui.input('Новий пароль адміністратора', password=True, password_toggle_button=True).classes(
                 'flex-1')
@@ -105,14 +160,13 @@ def build_settings_tab():
                 else:
                     ui.notify('Помилка бази даних', type='negative')
 
-            ui.button('Оновити пароль', on_click=change_pass, icon='lock_reset').classes('bg-orange-600')
-        ui.button('Зберегти параметри', on_click=lambda: save_settings(settings), icon='save').classes(
-            'w-full bg-green-600 shadow-md text-white')
-        ui.separator().classes('my-6')
-        ui.label('📡 Мережа та Система').classes('text-subtitle1 font-bold mb-2')
+            ui.button('Оновити пароль', on_click=change_pass, icon='lock_reset').classes('bg-accent')
 
-        with ui.card().classes('w-full p-4 border border-blue-200 bg-blue-50'):
-            ui.label('Налаштування Wi-Fi Точки доступу').classes('font-bold text-blue-900 mb-4')
+        ui.separator().classes('my-6')
+        ui.label('Мережа та Система').classes('text-subtitle1 font-bold mb-2')
+
+        with ui.card().classes('w-full p-4 border border-secondary bg-gray-100'):
+            ui.label('Налаштування Wi-Fi Точки доступу').classes('font-bold text-primary mb-4')
 
             with ui.row().classes('w-full gap-4 items-center'):
                 wifi_ssid = ui.input('Назва (SSID)', value='TowerClock').classes('flex-1 bg-white px-2 rounded')
@@ -120,7 +174,7 @@ def build_settings_tab():
 
                 async def apply_wifi():
                     if len(wifi_pass.value) < 8:
-                        ui.notify('Паро password має бути мін. 8 символів!', type='negative')
+                        ui.notify('Пароль має бути мін. 8 символів!', type='negative')
                         return
 
                     # Попереджаємо, що з'єднання розірветься
@@ -136,7 +190,7 @@ def build_settings_tab():
                         ui.notify('Застосування... Перепідключіться до нової мережі через хвилину.', type='warning')
                         update_wifi_settings(wifi_ssid.value, wifi_pass.value)
 
-                ui.button('Застосувати', icon='wifi', on_click=apply_wifi).classes('bg-blue-600 text-white')
+                ui.button('Застосувати', icon='wifi', on_click=apply_wifi).classes('bg-secondary text-white')
 
         # Блок перезавантаження (виносимо окремо, щоб випадково не натиснути)
         with ui.row().classes('w-full justify-end mt-8'):
@@ -153,4 +207,4 @@ def build_settings_tab():
                     reboot_pi()
 
             ui.button('Перезавантажити Orange Pi', icon='restart_alt', on_click=confirm_reboot).classes(
-                'bg-red-800 text-white shadow-lg')
+                'bg-negative text-white shadow-lg')
