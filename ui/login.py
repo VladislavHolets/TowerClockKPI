@@ -48,7 +48,7 @@ def build_login_page():
     with ui.column().classes('w-full h-screen items-center justify-center bg-gray-100 relative'):
 
         with ui.card().classes('w-96 p-8 shadow-2xl items-center rounded-xl border-t-4 border-primary'):
-            ui.icon('account_balance', size='4rem').classes('text-primary mb-2')
+            ui.icon('schedule', size='4rem').classes('text-primary mb-2')
 
             ui.label('Годинникова вежа КПІ').classes('text-h5 font-bold text-gray-800 text-center')
             ui.label('Вхід у систему').classes('text-subtitle1 text-gray-500 mb-8')
