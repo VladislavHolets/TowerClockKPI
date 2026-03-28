@@ -40,6 +40,7 @@ def index_page():
 if __name__ in {"__main__", "__mp_main__"}:
     print("Ініціалізація бази даних...")
     create_db_and_tables()
+
     init_default_data()
 
     print("Запуск фонового планувальника...")

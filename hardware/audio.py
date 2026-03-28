@@ -3,6 +3,7 @@ import time
 import threading
 import subprocess
 import queue
+import json
 from datetime import datetime
 from pathlib import Path
 from database.crud import get_system_settings
@@ -31,19 +32,30 @@ def is_quiet_time() -> bool:
     settings = get_system_settings()
     if not settings or not settings.quiet_mode_enabled:
         return False
+
     now = datetime.now().time()
     try:
-        start = datetime.strptime(settings.quiet_start, "%H:%M").time()
-        end = datetime.strptime(settings.quiet_end, "%H:%M").time()
-        if start <= end:
-            return start <= now <= end
-        else:
-            return start <= now or now <= end
+        qh_list = json.loads(settings.quiet_hours)
     except Exception:
         return False
 
+    for qh in qh_list:
+        try:
+            start = datetime.strptime(qh.get('start', '00:00'), "%H:%M").time()
+            end = datetime.strptime(qh.get('end', '00:00'), "%H:%M").time()
 
-def _play_file_raw(filename: str):
+            if start <= end:
+                if start <= now <= end:
+                    return True
+            else:
+                if start <= now or now <= end:
+                    return True
+        except Exception:
+            continue
+
+    return False
+
+def _play_file_raw(filename: str, volume: int = 100):
     """Фізичне відтворення файлу (без замків, бо працює в одному потоці-робітнику)"""
     global abort_flag
     if abort_flag or is_quiet_time():
@@ -55,8 +67,9 @@ def _play_file_raw(filename: str):
         return
 
     if IS_DEV:
-        print(f"[АУДІО DEV] Відтворюю: {filename}")
+        print(f"[АУДІО DEV] Відтворюю: {filename} (Гучність: {volume}%)")
         try:
+            pygame.mixer.music.set_volume(volume / 100.0)
             pygame.mixer.music.load(str(filepath))
             pygame.mixer.music.play()
             while pygame.mixer.music.get_busy():
@@ -72,7 +85,7 @@ def _play_file_raw(filename: str):
         print(f"[АУДІО PROD] mpv відтворює: {filename}")
         try:
             process = subprocess.Popen(
-                ["mpv", "--quiet", "--no-video", "--volume-max=100", "--volume=100", str(filepath)],
+                ["mpv", "--quiet", "--no-video", "--volume-max=100", f"--volume={volume}", str(filepath)],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL
             )
@@ -94,28 +107,33 @@ def _worker_process_task(task_type, args):
         current_hour_24 = args[0]
         settings = get_system_settings()
         mode = settings.pre_chime_mode if settings else "12_24"
-
+        vol_melody = settings.vol_melody if settings else 100
+        vol_knock = settings.vol_knock if settings else 100
         if mode == 'hourly' or (mode == '12_24' and current_hour_24 in [0, 12]):
-            print(f"[ОРКЕСТРАТОР] Граємо переддзвін (Режим: {mode})")
-            _play_file_raw("melody.mp3")
+            print(f"[ОРКЕСТРАТОР] Граємо переддзвін (Режим: {mode}Гучність: {vol_melody}%)")
+            _play_file_raw("melody.mp3",vol_melody)
 
         knocks_count = 12 if current_hour_24 % 12 == 0 else current_hour_24 % 12
-        print(f"[ОРКЕСТРАТОР] Відбиваємо дзвони: {knocks_count} ударів.")
+        print(f"[ОРКЕСТРАТОР] Відбиваємо дзвони: {knocks_count} ударів (Гучність: {vol_knock}%).")
         for _ in range(knocks_count):
             if abort_flag: break
-            _play_file_raw("knock.mp3")
+            _play_file_raw("knock.mp3",vol_knock)
             for _ in range(5):
                 if abort_flag: break
                 time.sleep(0.1)
 
     elif task_type == 'scheduled_event':
-        media_file, play_attention = args
+        media_file, play_attention,volume = args
         if play_attention:
-            _play_file_raw("attention.mp3")
-        _play_file_raw(media_file)
+            _play_file_raw("attention.mp3",get_system_settings().vol_attention)
+        _play_file_raw(media_file,volume)
 
     elif task_type == 'test_audio':
-        _play_file_raw("attention.mp3")
+        _play_file_raw("attention.mp3",get_system_settings().vol_attention)
+
+    elif task_type == 'test_file':
+        filename, volume = args
+        _play_file_raw(filename, volume)
 
 
 def _audio_worker():
@@ -126,7 +144,7 @@ def _audio_worker():
             time.sleep(0.1)
 
         # ПАТЕРН "ВІКНО АГРЕГАЦІЇ" (Aggregation Window)
-        # Даємо планувальнику 0.2 сек, щоб він встиг закинути ВІСІ задачі,
+        # Даємо планувальнику 0.2 сек, щоб він встиг закинути ВСІ задачі,
         # які спрацювали в цю ж мілісекунду. Черга сама їх відсортує.
         time.sleep(0.2)
 
@@ -134,8 +152,8 @@ def _audio_worker():
         priority, timestamp, task_type, args = audio_queue.get()
 
         try:
-            if not abort_flag:
-                _worker_process_task(task_type, args)
+            #if not abort_flag:
+            _worker_process_task(task_type, args)
         except Exception as e:
             print(f"[АУДІО ПОМИЛКА РОБІТНИКА] {e}")
         finally:
@@ -155,18 +173,21 @@ def play_hourly_sequence(current_hour_24: int):
     audio_queue.put((PRIORITY_SYSTEM_CHIME, time.time(), 'hourly_chime', (current_hour_24,)))
 
 
-def play_scheduled_event(media_file: str, play_attention: bool):
-    audio_queue.put((PRIORITY_USER_EVENT, time.time(), 'scheduled_event', (media_file, play_attention)))
+def play_scheduled_event(media_file: str, play_attention: bool,volume: int = 100):
+    audio_queue.put((PRIORITY_USER_EVENT, time.time(), 'scheduled_event', (media_file, play_attention, volume)))
 
 
 def play_test_audio():
     audio_queue.put((PRIORITY_TEST, time.time(), 'test_audio', ()))
 
+# Додаємо нову:
+def play_test_file(filename: str, volume: int):
+    audio_queue.put((PRIORITY_TEST, time.time(), 'test_file', (filename, volume)))
 
 def stop_audio():
     global abort_flag
     abort_flag = True
-    print("🛑 [АУДІО] ПРИМУСОВА ЗУПИНКА! Очищаємо чергу...")
+    print("[АУДІО] ПРИМУСОВА ЗУПИНКА! Очищаємо чергу...")
 
     # Очищаємо всі заплановані звуки, які ще не почали грати
     while not audio_queue.empty():
@@ -175,3 +196,4 @@ def stop_audio():
             audio_queue.task_done()
         except queue.Empty:
             break
+

@@ -6,6 +6,7 @@ from .tab_dashboard import build_dashboard_tab
 from .tab_schedule import build_schedule_tab
 from .tab_calibration import build_calibration_tab
 from .tab_settings import build_settings_tab
+from .tab_user import build_users_tab
 
 
 def create_layout():
@@ -57,21 +58,28 @@ def create_layout():
         app.storage.user.clear()  # Повністю очищаємо дані сесії
         ui.navigate.to('/login')
 
-    with ui.header().classes('row items-center justify-between px-4 py-2 shadow-md bg-primary'):
+    current_role = app.storage.user.get('role', 'operator')
+    current_user = app.storage.user.get('username', 'Гість')
+    is_admin = current_role == 'admin'
+
+    with ui.header().classes('row items-center justify-between px-4 py-4 shadow-md bg-primary'):
         with ui.row().classes('items-center gap-2'):
             ui.icon('schedule', size='md', color='white')
-            ui.label('Годинникова вежа КПІ ім. Ігоря Сікорського').classes('text-h6 font-bold text-white')
+            ui.label('Годинникова вежа КПІ ім. Ігоря Сікорського').classes('text-h5 font-bold text-white')
 
         # Кнопка виходу в правому куті
         with ui.row().classes('items-center gap-4'):
-            ui.label(app.storage.user.get('username', 'Admin')).classes('text-white font-medium')
+            role_badge = 'Адміністратор' if is_admin else 'Оператор'
+            ui.label(f"{role_badge} {current_user}").classes('text-sm font-medium opacity-90')
             ui.button(icon='logout', on_click=logout).props('flat round color=white').tooltip('Вийти з системи')
 
     with ui.tabs().classes('w-full bg-gray-200 text-primary shadow-sm') as tabs:
         tab_dash = ui.tab('Дашборд', icon='dashboard')
         tab_sched = ui.tab('Розклад', icon='list_alt')
         tab_calib = ui.tab('Калібрування', icon='build')
-        tab_set = ui.tab('Налаштування', icon='settings')
+        if is_admin:
+            tab_set = ui.tab('Налаштування', icon='settings')
+            tab_users = ui.tab('Користувачі', icon='person')
 
     with ui.tab_panels(tabs, value=tab_dash).classes('w-full max-w-5xl mx-auto mt-6 bg-transparent'):
         with ui.tab_panel(tab_dash):
@@ -82,9 +90,11 @@ def create_layout():
 
         with ui.tab_panel(tab_calib):
             build_calibration_tab()
-
-        with ui.tab_panel(tab_set):
-            build_settings_tab()
+        if is_admin:
+            with ui.tab_panel(tab_set):
+                build_settings_tab()
+            with ui.tab_panel(tab_users):
+                build_users_tab()
 
     with ui.footer().classes(
             'bg-white border-t border-gray-200 p-2 justify-center shadow-[0_-1px_3px_rgba(0,0,0,0.05)]'):

@@ -3,6 +3,7 @@ from datetime import datetime
 from nicegui import ui
 from database.crud import get_all_events, add_audio_event, toggle_audio_event, delete_audio_event, update_audio_event
 from core.scheduler import reload_jobs
+from hardware.audio import play_test_file  # [НОВЕ] Імпортуємо драйвер аудіо
 
 current_edit_id = {"id": None}
 
@@ -160,6 +161,27 @@ def build_schedule_tab():
 
         # Вибір аудіо
         media_input = ui.select(options=[], label='Аудіофайл').classes('w-full mt-4')
+
+        # ==========================================
+        # [НОВЕ] ІНДИВІДУАЛЬНА ГУЧНІСТЬ ТА ТЕСТУВАННЯ
+        # ==========================================
+        ui.label('Гучність відтворення:').classes('text-sm text-gray-600 mt-2')
+        with ui.row().classes('w-full items-center gap-2 mb-2'):
+            ui.icon('volume_down', size='sm').classes('text-gray-500')
+            event_volume = ui.slider(min=0, max=100, value=100).classes('flex-1 text-accent')
+            ui.label().bind_text_from(event_volume, 'value', backward=lambda v: f"{v}%").classes(
+                'text-xs text-gray-600 font-mono w-8 text-right')
+
+            def test_event_audio():
+                if not media_input.value or media_input.value == "Файли не знайдені":
+                    ui.notify('Оберіть аудіофайл для тестування!', type='warning')
+                    return
+                ui.notify(f'Тестування {media_input.value} ({event_volume.value}%)', type='info')
+                play_test_file(media_input.value, event_volume.value)  # Виклик через наш драйвер
+
+            ui.button(icon='play_arrow', on_click=test_event_audio).classes('bg-info text-white').props(
+                'dense padding="sm"').tooltip('Протестувати з поточною гучністю')
+
         play_attention_toggle = ui.checkbox('Грати звук сповіщення ("вокзальний" гонг) перед подією',
                                             value=False).classes('mt-2 text-gray-700')
 
@@ -189,11 +211,14 @@ def build_schedule_tab():
                 return
 
             if current_edit_id["id"] is None:
-                add_audio_event(name_input.value, cron_expr, media_input.value, play_attention_toggle.value)
+                # ВИПРАВЛЕНО: використання іменованих аргументів для безпечного збереження
+                add_audio_event(name=name_input.value, cron_expression=cron_expr, media_file=media_input.value,
+                                play_attention=play_attention_toggle.value, volume=event_volume.value)
                 ui.notify('Подію успішно створено!', type='positive')
             else:
-                update_audio_event(current_edit_id["id"], name_input.value, cron_expr, media_input.value,
-                                   play_attention_toggle.value)
+                update_audio_event(event_id=current_edit_id["id"], name=name_input.value, cron_expression=cron_expr,
+                                   media_file=media_input.value, play_attention=play_attention_toggle.value,
+                                   volume=event_volume.value)
                 ui.notify('Подію успішно оновлено!', type='positive')
 
             dialog.close()
@@ -212,6 +237,7 @@ def build_schedule_tab():
         media_input.value = None
         media_input.update()
         play_attention_toggle.value = False
+        event_volume.value = 100  # Скидаємо гучність
 
         # ДИНАМІЧНИЙ ПОТОЧНИЙ ЧАС ДЛЯ РАЗОВОЇ ПОДІЇ
         now = datetime.now()
@@ -229,6 +255,7 @@ def build_schedule_tab():
         media_input.update()
 
         play_attention_toggle.value = row_data.get('play_attention', False)
+        event_volume.value = row_data.get('volume', 100)  # Завантажуємо гучність з БД
 
         expr = row_data['cron_expression']
         if expr.startswith('DATE:'):
@@ -279,6 +306,8 @@ def build_schedule_tab():
             # ЗВЕРНІТЬ УВАГУ: Тепер колонка дивиться на поле cron_display
             {'name': 'cron', 'label': 'Розклад', 'field': 'cron_display', 'align': 'left'},
             {'name': 'media', 'label': 'Медіафайл', 'field': 'media_file', 'align': 'left'},
+            {'name': 'volume', 'label': 'Гучність', 'field': 'volume_display', 'align': 'center'},
+            # [НОВЕ] Колонка гучності
             {'name': 'attention', 'label': 'Гонг', 'field': 'attention_icon', 'align': 'center'},
             {'name': 'status', 'label': 'Статус', 'field': 'is_active', 'align': 'center'},
             {'name': 'actions', 'label': 'Керування', 'field': 'actions', 'align': 'center'},
@@ -293,6 +322,8 @@ def build_schedule_tab():
             'cron_display': e.cron_expression.replace('DATE:', '📅 ') if e.cron_expression.startswith(
                 'DATE:') else f"⏱️ {e.cron_expression}",
             'media_file': e.media_file,
+            'volume': getattr(e, 'volume', 100),  # Зберігаємо для вікна редагування
+            'volume_display': f"🔊 {getattr(e, 'volume', 100)}%",  # Для красивого відображення в таблиці
             'attention_icon': '🔔' if e.play_attention else '—',
             'play_attention': e.play_attention,
             'is_active': '✅ Активно' if e.is_active else '⏸️ Пауза',
@@ -303,9 +334,9 @@ def build_schedule_tab():
 
         table.add_slot('body-cell-actions', '''
             <q-td :props="props">
-                <q-btn flat round size="sm" :icon="props.row.is_active_raw ? 'pause' : 'play_arrow'" :color="props.row.is_active_raw ? 'warning' : 'positive'" @click="() => $parent.$emit('toggle', props.row)" />
-                <q-btn flat round size="sm" icon="edit" color="info" @click="() => $parent.$emit('edit', props.row)" />
-                <q-btn flat round size="sm" icon="delete" color="negative" @click="() => $parent.$emit('delete', props.row)" />
+                <q-btn flat round size="sm" :icon="props.row.is_active_raw ? 'pause' : 'play_arrow'" :color="props.row.is_active_raw ? 'warning' : 'positive'" @click="() => $parent.$emit('toggle', props.row)" tooltip="Увімкнути/Вимкнути"/>
+                <q-btn flat round size="sm" icon="edit" color="info" @click="() => $parent.$emit('edit', props.row)" tooltip="Редагувати"/>
+                <q-btn flat round size="sm" icon="delete" color="negative" @click="() => $parent.$emit('delete', props.row)" tooltip="Видалити"/>
             </q-td>
         ''')
 
