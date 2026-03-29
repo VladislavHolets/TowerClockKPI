@@ -484,7 +484,7 @@ flowchart TD
         Sched[APScheduler Thread<br>Фоновий відлік часу]
     end
 
-    subgraph Безпечні Черги (Thread-Safe)
+    subgraph Queues ["Безпечні Черги (Thread-Safe)"]
         MQ[(Motor Queue<br>FIFO черга)]
         AQ[(Audio PriorityQueue<br>Черга з пріоритетами)]
     end
@@ -524,10 +524,10 @@ flowchart TD
     MQ -.-> |Фонове виконання| HardwareMotor[Двигун робить крок]
     AQ -.-> |Фонове виконання| HardwareAudio[Бій курантів]
 ```
-### 10.Мережева топологія та Режим "Hotspot
+### 10.Мережева топологія та Режим "Hotspot"
 ```mermaid
 flowchart LR
-    subgraph ClockTower["Вежа (Orange Pi)"]
+    subgraph ClockTower ["Вежа (Orange Pi)"]
         NetworkManager[NetworkManager<br>Служба ОС Linux]
         AP((Wi-Fi Hotspot<br>SSID: TowerClock))
         Web[NiceGUI Server<br>http://10.42.0.1:80]
