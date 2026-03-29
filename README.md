@@ -414,7 +414,7 @@ flowchart LR
 ```mermaid
 flowchart TD
     %% Зовнішні актори
-    Users(("Користувачі<br>(Оператор / Адмін)"))
+    Users(("[Користувачі<br>(Оператор / Адмін)]"))
 
     %% Presentation Layer
     subgraph UI ["Шар Інтерфейсу (ui/)"]
@@ -476,7 +476,7 @@ flowchart TD
 ### 8.Модель багатопотоковості та черг (Concurrency & Threading)
 ```mermaid
 flowchart TD
-    subgraph Головний потік (Main Thread)
+    subgraph [Головний потік (Main Thread)]
         UI[NiceGUI Web Server<br>Обробка натискань UI]
     end
 
@@ -527,7 +527,7 @@ flowchart TD
 ### 10.Мережева топологія та Режим "Hotspot
 ```mermaid
 flowchart LR
-    subgraph Вежа (Orange Pi)
+    subgraph [Вежа (Orange Pi)]
         NetworkManager[NetworkManager<br>Служба ОС Linux]
         AP((Wi-Fi Hotspot<br>SSID: TowerClock))
         Web[NiceGUI Server<br>http://10.42.0.1:80]
