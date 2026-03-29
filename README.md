@@ -239,47 +239,26 @@ sudo systemctl start towerclock.service
 ```
 
 ```mermaid
-graph LR
-    subgraph Живлення (220V)
-        UPS[Джерело безперебійного живлення<br>ПБЖ / UPS]
-        PSU[Головний Блок Живлення<br>24V / 10A]
-        DCDC[DC-DC Конвертер<br>LM... Step-Down на 5V]
-    end
-
-    subgraph Керування (Ядро)
-        Pi[Orange Pi Zero LTS <br>Allwinner H2+]
-        Shield[Кастомний Шилд-Адаптер<br>Транзисторні ключі s8050]
-    end
-
-    subgraph Аудіосистема
-        Amp[Трансляційний підсилювач<br>240 Вт]
-        Spk1[Рупорний гучномовець 1<br>100V]
-        Spk2[Рупорний гучномовець N<br>100V]
-    end
-
-    subgraph Механіка
-        Driver[Драйвер двигуна<br>TB6600]
-        Motor((Кроковий двигун))
-    end
-
-    %% Лінії живлення
-    UPS -->|220V| PSU
-    UPS -->|220V| Amp
-    PSU -->|24V| DCDC
-    PSU -->|24V| Driver
-    DCDC -->|5V| Pi
-
-    %% Фізичні з'єднання ядра
-    Pi == "Піни (GPIO, Audio, 5V)" ==> Shield
+flowchart TD
+    Start[Користувач вводить час на циферблаті] --> M1[Конвертація у хвилини]
+    NTP[Отримання точного часу NTP] --> M2[Конвертація у хвилини]
     
-    %% Лінії керування
-    Shield == "Сигнали 5V S8050<br>(STEP, DIR, EN)" ==> Driver
-    Shield == "Аудіо вихід Minijack<br>(Mono Differential)" ==> Amp
-
-    %% Силові виходи
-    Amp == "100V лінія<br>(Паралельне підключення)" ==> Spk1
-    Amp == "100V лінія<br>(Паралельне підключення)" ==> Spk2
-    Driver == "4 силові дроти" ==> Motor
+    M1 --> Diff
+    M2 --> Diff[Розрахунок різниці:<br>diff = NTP - Hands % 720]
+    
+    Diff --> Check0{diff == 0?}
+    Check0 -->|Так| End[Синхронізація не потрібна]
+    Check0 -->|Ні| Check{diff <= 360?}
+    
+    Check -->|Так| Fwd[Рух ВПЕРЕД на diff хвилин]
+    Check -->|Ні| Bwd[Рух НАЗАД на diff - 720 хвилин]
+    
+    Fwd --> Q[(Motor Queue)]
+    Bwd --> Q
+    
+    Q --> Worker[Фоновий потік MotorWorker]
+    Worker --> GPIO[Подача сигналів на STEP/DIR піни]
+    GPIO --> Motor((Кроковий двигун))
 ```
 ```mermaid
 flowchart TD
