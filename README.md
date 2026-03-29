@@ -285,26 +285,26 @@ flowchart TD
 
 ```mermaid
 graph LR
-    subgraph Живлення (220V)
-        UPS[Джерело безперебійного живлення<br>ПБЖ / UPS]
-        PSU[Головний Блок Живлення<br>24V / 10A]
-        DCDC[DC-DC Конвертер<br>LM... Step-Down на 5V]
+    subgraph Power ["Живлення (220V)"]
+        UPS["Джерело безперебійного живлення<br>ПБЖ / UPS"]
+        PSU["Головний Блок Живлення<br>24V / 10A"]
+        DCDC["DC-DC Конвертер<br>LM... Step-Down на 5V"]
     end
 
-    subgraph Керування (Ядро)
-        Pi[Orange Pi Zero LTS <br>Allwinner H2+]
-        Shield[Кастомний Шилд-Адаптер<br>Транзисторні ключі s8050]
+    subgraph Core ["Керування (Ядро)"]
+        Pi["Orange Pi Zero LTS <br>Allwinner H2+"]
+        Shield["Кастомний Шилд-Адаптер<br>Транзисторні ключі s8050"]
     end
 
-    subgraph Аудіосистема
-        Amp[Трансляційний підсилювач<br>240 Вт]
-        Spk1[Рупорний гучномовець 1<br>100V]
-        Spk2[Рупорний гучномовець N<br>100V]
+    subgraph Audio ["Аудіосистема"]
+        Amp["Трансляційний підсилювач<br>240 Вт"]
+        Spk1["Рупорний гучномовець 1<br>100V"]
+        Spk2["Рупорний гучномовець N<br>100V"]
     end
 
-    subgraph Механіка
-        Driver[Драйвер двигуна<br>TB6600]
-        Motor((Кроковий двигун))
+    subgraph Mechanics ["Механіка"]
+        Driver["Драйвер двигуна<br>TB6600"]
+        Motor(("Кроковий двигун"))
     end
 
     %% Лінії живлення
