@@ -480,7 +480,7 @@ flowchart TD
         UI[NiceGUI Web Server<br>Обробка натискань UI]
     end
 
-    subgraph Scheduler 
+    subgraph Scheduler ["Планувальник (Scheduler)"]
         Sched[APScheduler Thread<br>Фоновий відлік часу]
     end
 
@@ -489,7 +489,7 @@ flowchart TD
         AQ[(Audio PriorityQueue<br>Черга з пріоритетами)]
     end
 
-    subgraph Daemons
+    subgraph Daemons["Сервіси (Daemons)"]
         MW[MotorWorker Thread<br>Керування GPIO]
         AW[AudioWorker Thread<br>Керування MPV/Pygame]
     end
