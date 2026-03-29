@@ -237,3 +237,113 @@ sudo systemctl daemon-reload
 sudo systemctl enable towerclock.service
 sudo systemctl start towerclock.service
 ```
+
+```mermaid
+graph LR
+    subgraph Живлення (220V)
+        UPS[Джерело безперебійного живлення<br>ПБЖ / UPS]
+        PSU[Головний Блок Живлення<br>24V / 10A]
+        DCDC[DC-DC Конвертер<br>LM... Step-Down на 5V]
+    end
+
+    subgraph Керування (Ядро)
+        Pi[Orange Pi Zero LTS <br>Allwinner H2+]
+        Shield[Кастомний Шилд-Адаптер<br>Транзисторні ключі s8050]
+    end
+
+    subgraph Аудіосистема
+        Amp[Трансляційний підсилювач<br>240 Вт]
+        Spk1[Рупорний гучномовець 1<br>100V]
+        Spk2[Рупорний гучномовець N<br>100V]
+    end
+
+    subgraph Механіка
+        Driver[Драйвер двигуна<br>TB6600]
+        Motor((Кроковий двигун))
+    end
+
+    %% Лінії живлення
+    UPS -->|220V| PSU
+    UPS -->|220V| Amp
+    PSU -->|24V| DCDC
+    PSU -->|24V| Driver
+    DCDC -->|5V| Pi
+
+    %% Фізичні з'єднання ядра
+    Pi == "Піни (GPIO, Audio, 5V)" ==> Shield
+    
+    %% Лінії керування
+    Shield == "Сигнали 5V S8050<br>(STEP, DIR, EN)" ==> Driver
+    Shield == "Аудіо вихід Minijack<br>(Mono Differential)" ==> Amp
+
+    %% Силові виходи
+    Amp == "100V лінія<br>(Паралельне підключення)" ==> Spk1
+    Amp == "100V лінія<br>(Паралельне підключення)" ==> Spk2
+    Driver == "4 силові дроти" ==> Motor
+```
+```mermaid
+flowchart TD
+    UI[Web UI: Тест звуку] -->|Priority 10| Q[(Priority Queue)]
+    Sched[APScheduler: Розклад] -->|Priority 5| Q
+    Chime[APScheduler: Бій курантів] -->|Priority 1| Q
+    
+    W[Audio Worker Thread] -->|Очікування 0.2с| Q
+    Q -->|Витягує найвищий пріоритет| P{Тип завдання}
+    
+    P -->|hourly_chime| H[Цикл: Мелодія + Удари]
+    P -->|scheduled_event| E[Цикл: Увага + Подія]
+    
+    H --> CheckQuiet{is_quiet_time?}
+    E --> CheckQuiet
+    
+    CheckQuiet -->|Так| Drop[Завдання скасовується]
+    CheckQuiet -->|Ні| Play[Відтворення через MPV / Pygame]
+    
+    Play --> Loop{Кнопка 'СТОП' натиснута?<br>abort_flag == True}
+    Loop -->|Так| Terminate[Примусове вбивство процесу mpv]
+    Loop -->|Ні| Finish[Завдання успішно завершено]
+```
+
+```mermaid
+graph LR
+    subgraph Живлення (220V)
+        UPS[Джерело безперебійного живлення<br>ПБЖ / UPS]
+        PSU[Головний Блок Живлення<br>24V / 10A]
+        DCDC[DC-DC Конвертер<br>LM... Step-Down на 5V]
+    end
+
+    subgraph Керування (Ядро)
+        Pi[Orange Pi Zero LTS <br>Allwinner H2+]
+        Shield[Кастомний Шилд-Адаптер<br>Транзисторні ключі s8050]
+    end
+
+    subgraph Аудіосистема
+        Amp[Трансляційний підсилювач<br>240 Вт]
+        Spk1[Рупорний гучномовець 1<br>100V]
+        Spk2[Рупорний гучномовець N<br>100V]
+    end
+
+    subgraph Механіка
+        Driver[Драйвер двигуна<br>TB6600]
+        Motor((Кроковий двигун))
+    end
+
+    %% Лінії живлення
+    UPS -->|220V| PSU
+    UPS -->|220V| Amp
+    PSU -->|24V| DCDC
+    PSU -->|24V| Driver
+    DCDC -->|5V| Pi
+
+    %% Фізичні з'єднання ядра
+    Pi == "Піни (GPIO, Audio, 5V)" ==> Shield
+    
+    %% Лінії керування
+    Shield == "Сигнали 5V S8050<br>(STEP, DIR, EN)" ==> Driver
+    Shield == "Аудіо вихід Minijack<br>(Mono Differential)" ==> Amp
+
+    %% Силові виходи
+    Amp == "100V лінія<br>(Паралельне підключення)" ==> Spk1
+    Amp == "100V лінія<br>(Паралельне підключення)" ==> Spk2
+    Driver == "4 силові дроти" ==> Motor
+```
