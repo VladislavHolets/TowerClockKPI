@@ -96,7 +96,7 @@ def build_users_tab():
                 ui.label(f'Новий пароль для {row["username"]}').classes('text-h6 mb-2')
                 new_p = ui.input('Пароль', password=True).classes('w-full mb-4')
                 with ui.row().classes('w-full justify-end gap-2'):
-                    ui.button('СКАСУВАТИ', color='gray', on_click=lambda: diag.submit(None))
+                    ui.button('СКАСУВАТИ', color='red', on_click=lambda: diag.submit(None))
                     ui.button('ЗБЕРЕГТИ', color='primary', on_click=lambda: diag.submit(new_p.value))
 
             result = await diag
