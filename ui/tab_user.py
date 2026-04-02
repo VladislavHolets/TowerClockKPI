@@ -30,7 +30,7 @@ def build_users_tab():
                 ui.notify('Користувач з таким логіном вже існує!', type='negative')
 
         with ui.row().classes('w-full justify-end gap-2'):
-            ui.button('Скасувати', on_click=add_user_dialog.close, color='gray')
+            ui.button('Скасувати', on_click=add_user_dialog.close, color='red')
             ui.button('Створити', on_click=save_new_user, color='primary')
 
     # ==========================================
@@ -82,7 +82,7 @@ def build_users_tab():
             with ui.dialog() as diag, ui.card():
                 ui.label(f'Видалити користувача {row["username"]}?').classes('text-h6 mb-2')
                 with ui.row().classes('w-full justify-end gap-2'):
-                    ui.button('СКАСУВАТИ', color='gray', on_click=lambda: diag.submit(False))
+                    ui.button('СКАСУВАТИ', color='secondary', on_click=lambda: diag.submit(False))
                     ui.button('ТАК, ВИДАЛИТИ', color='negative', on_click=lambda: diag.submit(True))
 
             if await diag:
