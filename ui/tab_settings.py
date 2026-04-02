@@ -194,9 +194,14 @@ def build_settings_tab():
                 def check_update():
                     update_status.set_text('Стан: Зв\'язок з GitHub...')
                     try:
-                        subprocess.run(['git', 'fetch'], check=True, capture_output=True)
+
+                        current_dir = Path.cwd()
+
+                        # Передаємо cwd у subprocess
+                        subprocess.run(['git', 'fetch'], cwd=current_dir, check=True, capture_output=True)
                         behind_count_str = subprocess.check_output(
-                            ['git', 'rev-list', 'HEAD..@{u}', '--count']
+                            ['git', 'rev-list', 'HEAD..@{u}', '--count'],
+                            cwd=current_dir
                         ).decode('utf-8').strip()
                         commits_behind = int(behind_count_str)
 
