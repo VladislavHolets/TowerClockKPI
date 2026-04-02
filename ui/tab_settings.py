@@ -198,9 +198,9 @@ def build_settings_tab():
                         current_dir = Path.cwd()
 
                         # Передаємо cwd у subprocess
-                        subprocess.run(['git', 'fetch'], cwd=current_dir, check=True, capture_output=True)
+                        subprocess.run(['git', '-c', 'safe.directory=*', 'fetch'], cwd=current_dir, check=True, capture_output=True)
                         behind_count_str = subprocess.check_output(
-                            ['git', 'rev-list', 'HEAD..@{u}', '--count'],
+                            ['git', '-c', 'safe.directory=*', 'rev-list', 'HEAD..@{u}', '--count'],
                             cwd=current_dir
                         ).decode('utf-8').strip()
                         commits_behind = int(behind_count_str)
