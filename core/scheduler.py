@@ -27,13 +27,13 @@ def tick_minute():
         play_hourly_sequence(now.hour)
 
 
-def execute_audio_event(event_name: str, media_file: str, play_attention: bool):
+def execute_audio_event(event_name: str, media_file: str, play_attention: bool, volume: int):
     """Фоновий процес для подій з БД"""
     now = datetime.datetime.now()
     print(f"[{now.strftime('%H:%M:%S')}] Планувальник відправив у чергу подію: '{event_name}'")
 
     # Ніяких sleep(). Просто кидаємо в чергу. Пріоритетність розбереться сама.
-    play_scheduled_event(media_file, play_attention)
+    play_scheduled_event(media_file, play_attention, volume)
 
 
 
@@ -63,7 +63,7 @@ def reload_jobs():
                     scheduler.add_job(
                         execute_audio_event,
                         trigger=DateTrigger(run_date=run_datetime),
-                        args=[event.name, event.media_file,event.play_attention],
+                        args=[event.name, event.media_file, event.play_attention, event.volume],
                         id=f"event_{event.id}"
                     )
                     print(f"Заплановано разову подію: '{event.name}' на {run_datetime}")
@@ -74,7 +74,7 @@ def reload_jobs():
                 scheduler.add_job(
                     execute_audio_event,
                     trigger=trigger,
-                    args=[event.name, event.media_file,event.play_attention],
+                    args=[event.name, event.media_file, event.play_attention, event.volume],
                     id=f"event_{event.id}"
                 )
                 print(f"Заплановано регулярну подію: '{event.name}' [{event.cron_expression}]")

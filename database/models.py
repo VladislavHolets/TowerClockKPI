@@ -19,6 +19,7 @@ class AudioEvent(SQLModel, table=True):
     is_active: bool = Field(default=True)
     play_attention: bool = Field(default=False)  # НОВЕ ПОЛЕ: Чи грати attention.mp3 перед цією подією
     volume: int = Field(default=100, ge=0, le=100)
+    event_type: str = Field(default="bell")  # Тип події: "bell", "announcement", тощо
 
 # 3. Таблиця Глобальних Налаштувань (Періоди тиші, гучність)
 # Зазвичай тут буде лише один запис (рядок) з id=1

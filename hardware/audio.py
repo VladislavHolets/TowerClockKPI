@@ -94,6 +94,12 @@ def _play_file_raw(filename: str, volume: int = 100):
                     process.terminate()
                     break
                 time.sleep(0.1)
+            # Чекаємо завершення процесу, щоб уникнути зомбі
+            process.wait(timeout=1.0)
+        except subprocess.TimeoutExpired:
+            # Якщо процес не завершився за 1 секунду, вбиваємо примусово
+            process.kill()
+            process.wait()
         except Exception as e:
             print(f"[АУДІО ПОМИЛКА mpv] {e}")
 
@@ -101,6 +107,10 @@ def _play_file_raw(filename: str, volume: int = 100):
 def _worker_process_task(task_type, args):
     """Розшифровує завдання з черги і запускає його частини"""
     global abort_flag
+    # Якщо аудіо було зупинено, пропускаємо це завдання
+    if abort_flag:
+        print(f"[ОРКЕСТРАТОР] Пропускаємо завдання '{task_type}' через abort_flag")
+        return
     abort_flag = False
 
     if task_type == 'hourly_chime':
@@ -139,20 +149,21 @@ def _worker_process_task(task_type, args):
 def _audio_worker():
     """Фоновий робітник: розгрібає чергу строго за пріоритетами"""
     while True:
-        # Чекаємо, поки в черзі з'явиться хоча б 1 завдання
-        while audio_queue.empty():
-            time.sleep(0.1)
+        # Блокуємо потік до появи завдання (ефективніше за busy-waiting)
+        priority, timestamp, task_type, args = audio_queue.get(block=True)
 
         # ПАТЕРН "ВІКНО АГРЕГАЦІЇ" (Aggregation Window)
         # Даємо планувальнику 0.2 сек, щоб він встиг закинути ВСІ задачі,
         # які спрацювали в цю ж мілісекунду. Черга сама їх відсортує.
         time.sleep(0.2)
 
-        # Витягуємо найважливіше завдання: (priority, timestamp, task_type, args)
-        priority, timestamp, task_type, args = audio_queue.get()
+        # Перевіряємо, чи не з'явилося важливіше завдання за цей час
+        if not audio_queue.empty():
+            # Повертаємо поточне завдання назад
+            audio_queue.put((priority, timestamp, task_type, args))
+            continue
 
         try:
-            #if not abort_flag:
             _worker_process_task(task_type, args)
         except Exception as e:
             print(f"[АУДІО ПОМИЛКА РОБІТНИКА] {e}")
