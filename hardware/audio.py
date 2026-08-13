@@ -189,7 +189,7 @@ def _audio_worker():
         try:
             _worker_process_task(task_type, args)
         except Exception as e:
-            print(f"[АУДІО ПОМИЛКА РОБІТНИКА] {e}")
+            print(f"[АУДІО ПОМИЛКА РОБІТНИКА] {e}", flush=True)
         finally:
             audio_queue.task_done()
 
@@ -220,8 +220,10 @@ def play_test_file(filename: str, volume: int):
 
 def stop_audio():
     global abort_flag
+    print("[АУДІО] ПРИМУСОВА ЗУПИНКА! Очищаємо чергу...", flush=True)
+
+    # Виставляємо флаг для зупинки поточного відтворення
     abort_flag = True
-    print("[АУДІО] ПРИМУСОВА ЗУПИНКА! Очищаємо чергу...")
 
     # Очищаємо всі заплановані звуки, які ще не почали грати
     while not audio_queue.empty():
@@ -230,4 +232,13 @@ def stop_audio():
             audio_queue.task_done()
         except queue.Empty:
             break
+
+    # Запускаємо асинхронне скидання флагу
+    def reset_flag():
+        time.sleep(0.3)  # Даємо час поточному відтворенню зупинитися
+        global abort_flag
+        abort_flag = False
+        print("[АУДІО] Зупинка завершена, готовий до нових завдань", flush=True)
+
+    threading.Thread(target=reset_flag, daemon=True, name="AbortFlagReset").start()
 
