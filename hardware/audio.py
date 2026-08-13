@@ -58,12 +58,15 @@ def is_quiet_time() -> bool:
 def _play_file_raw(filename: str, volume: int = 100):
     """Фізичне відтворення файлу (без замків, бо працює в одному потоці-робітнику)"""
     global abort_flag
+    print(f"[АУДІО] _play_file_raw викликано: {filename}, volume={volume}, abort_flag={abort_flag}, IS_DEV={IS_DEV}", flush=True)
+
     if abort_flag or is_quiet_time():
+        print(f"[АУДІО] Пропуск відтворення: abort_flag={abort_flag}, quiet_time={is_quiet_time()}", flush=True)
         return
 
     filepath = MEDIA_FOLDER / filename
     if not filepath.exists():
-        print(f"[АУДІО ПОМИЛКА] Файл не знайдено: {filepath}")
+        print(f"[АУДІО ПОМИЛКА] Файл не знайдено: {filepath}", flush=True)
         return
 
     if IS_DEV:
@@ -82,20 +85,38 @@ def _play_file_raw(filename: str, volume: int = 100):
         except Exception as e:
             print(f"[АУДІО ПОМИЛКА] {e}")
     else:
-        print(f"[АУДІО PROD] mpv відтворює: {filename}")
+        print(f"[АУДІО PROD] Запускаю mpv для: {filename}, гучність: {volume}%", flush=True)
         try:
+            cmd = ["mpv", "--no-config", "--no-video", "--audio-device=auto", f"--volume={volume}", str(filepath)]
+            print(f"[АУДІО PROD] Команда: {' '.join(cmd)}", flush=True)
+
             process = subprocess.Popen(
-                ["mpv", "--quiet", "--no-video", "--volume-max=100", f"--volume={volume}", str(filepath)],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT
             )
-            while process.poll() is None:
+
+            # Читаємо вивід в реальному часі
+            while True:
                 if abort_flag:
                     process.terminate()
+                    print("[АУДІО PROD] mpv зупинено через abort_flag", flush=True)
                     break
+
+                if process.poll() is not None:
+                    break
+
                 time.sleep(0.1)
-            # Чекаємо завершення процесу, щоб уникнути зомбі
+
+            # Чекаємо завершення процесу
             process.wait(timeout=1.0)
+
+            # Читаємо весь вивід
+            output = process.stdout.read().decode('utf-8', errors='ignore') if process.stdout else ""
+            if output:
+                print(f"[АУДІО mpv вивід] {output}", flush=True)
+
+            print(f"[АУДІО PROD] mpv завершено з кодом: {process.returncode}", flush=True)
         except subprocess.TimeoutExpired:
             # Якщо процес не завершився за 1 секунду, вбиваємо примусово
             process.kill()
@@ -107,9 +128,11 @@ def _play_file_raw(filename: str, volume: int = 100):
 def _worker_process_task(task_type, args):
     """Розшифровує завдання з черги і запускає його частини"""
     global abort_flag
+    print(f"[ОРКЕСТРАТОР] Отримано завдання: {task_type}, args={args}", flush=True)
+
     # Якщо аудіо було зупинено, пропускаємо це завдання
     if abort_flag:
-        print(f"[ОРКЕСТРАТОР] Пропускаємо завдання '{task_type}' через abort_flag")
+        print(f"[ОРКЕСТРАТОР] Пропускаємо завдання '{task_type}' через abort_flag", flush=True)
         return
     abort_flag = False
 
