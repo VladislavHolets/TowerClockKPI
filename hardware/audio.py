@@ -87,7 +87,7 @@ def _play_file_raw(filename: str, volume: int = 100):
     else:
         print(f"[АУДІО PROD] Запускаю mpv для: {filename}, гучність: {volume}%", flush=True)
         try:
-            cmd = ["mpv", "--no-config", "--no-video", "--audio-device=auto", f"--volume={volume}", str(filepath)]
+            cmd = ["mpv", "--no-config", "--no-video", "--ao=alsa", f"--volume={volume}", str(filepath)]
             print(f"[АУДІО PROD] Команда: {' '.join(cmd)}", flush=True)
 
             process = subprocess.Popen(
